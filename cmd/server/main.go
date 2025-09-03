@@ -36,8 +36,8 @@ func (s *server) getSession(w http.ResponseWriter, r *http.Request) (string, *my
             Value:    sid,
             Path:     "/",
             HttpOnly: true,
-            Secure:   true,                   
-            SameSite: http.SameSiteNoneMode,  
+            Secure:   true,
+            SameSite: http.SameSiteNoneMode,
         })
         s.mu.Lock()
         s.sessions[sid] = myinterp.NewInterpreter()
@@ -126,12 +126,19 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, path.Join("public", "index.html"))
 }
 
+
+func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    _ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+
 func writeJSON(w http.ResponseWriter, code int, v interface{}) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(code)
     _ = json.NewEncoder(w).Encode(v)
 }
-
 
 func withCORS(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,6 +167,7 @@ func main() {
     mux.HandleFunc("/", s.handleIndex)
     mux.HandleFunc("/eval", s.handleEval)
     mux.HandleFunc("/session", s.handleSession)
+    mux.HandleFunc("/health", s.handleHealth)
 
     handler := withCORS(mux)
 

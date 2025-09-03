@@ -22,7 +22,9 @@ type server struct {
     sessions map[string]*myinterp.Interpreter
 }
 
-func newServer() *server { return &server{sessions: map[string]*myinterp.Interpreter{}} }
+func newServer() *server {
+    return &server{sessions: map[string]*myinterp.Interpreter{}}
+}
 
 func (s *server) getSession(w http.ResponseWriter, r *http.Request) (string, *myinterp.Interpreter) {
     cookie, err := r.Cookie("sid")
@@ -59,7 +61,9 @@ func newSID() string {
     return hex.EncodeToString(b)
 }
 
-type evalReq struct{ Line string `json:"line"` }
+type evalReq struct {
+    Line string `json:"line"`
+}
 
 type evalResp struct {
     OK     bool        `json:"ok"`
@@ -67,8 +71,18 @@ type evalResp struct {
     Error  string      `json:"error,omitempty"`
 }
 
+
 func (s *server) handleEval(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodOptions {
+        w.WriteHeader(http.StatusNoContent)
+        return
+    }
+
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
     _, interp := s.getSession(w, r)
+
     var req evalReq
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
         writeJSON(w, http.StatusBadRequest, evalResp{OK: false, Error: "bad request"})
@@ -97,6 +111,12 @@ func (s *server) handleEval(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodOptions {
+        w.WriteHeader(http.StatusNoContent)
+        return
+    }
+
+    w.Header().Set("Access-Control-Allow-Origin", "*")
     sid, _ := s.getSession(w, r)
     writeJSON(w, 200, map[string]string{"session": sid})
 }
@@ -138,7 +158,6 @@ func main() {
     mux.HandleFunc("/eval", s.handleEval)
     mux.HandleFunc("/session", s.handleSession)
 
-    
     handler := withCORS(mux)
 
     port := os.Getenv("PORT")

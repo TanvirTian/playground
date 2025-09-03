@@ -71,30 +71,21 @@
     lines: [],
     session: '',
     init() {
-      fetch(`${API}/session`)
-        .then(r => r.json())
-        .then(j => { this.session = j.session })
-    },
-    append(input, output, ok = true) {
-      this.lines.push({ id: crypto.randomUUID(), input, output, ok })
-      this.$nextTick(() => {
-        const el = document.getElementById('output');
-        el.scrollTop = el.scrollHeight;
-      })
-    },
-    async run() {
-      const blocks = this.code.split(/\n+/).map(s => s.trim()).filter(Boolean)
-      for (const b of blocks) {
-        const res = await fetch(`${API}/eval`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ line: b })
-        })
-        const data = await res.json()
-        this.append(b, data.ok ? String(data.result) : data.error, data.ok)
-      }
-    },
-    clearOutput() { this.lines = [] }
+  fetch(`${API}/session`, { credentials: 'include' })
+    .then(r => r.json())
+    .then(j => { this.session = j.session })
+},
+async run() {
+  const blocks = this.code.split(/\n+/).map(s => s.trim()).filter(Boolean)
+  for (const b of blocks) {
+    const res = await fetch(`${API}/eval`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ line: b }),
+      credentials: 'include'
+    })
+    const data = await res.json()
+    this.append(b, data.ok ? String(data.result) : data.error, data.ok)
   }
 }
     </script>

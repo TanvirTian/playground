@@ -53,7 +53,10 @@
         </div>
       </div>
     </div>
-    <p class="muted" style="margin-top:12px; font-size:12px">Backend keeps variables per-session using a cookie. Refresh to start fresh. <a href="https://alpinejs.dev/" target="_blank" rel="noreferrer">Alpine.js</a> on the front, Go on the back.</p>
+    <p class="muted" style="margin-top:12px; font-size:12px">
+      Backend keeps variables per-session using a token. Refresh to start fresh. 
+      <a href="https://alpinejs.dev/" target="_blank" rel="noreferrer">Alpine.js</a> on the front, Go on the back.
+    </p>
   </div>
 
   <script>
@@ -63,10 +66,14 @@
         code: "",
         lines: [],
         session: "",
-        init() {
-          fetch(`${API}/session`, { credentials: 'include' })
-            .then(r => r.json())
-            .then(j => { this.session = j.session });
+        async init() {
+          try {
+            const res = await fetch(`${API}/session`);
+            const data = await res.json();
+            this.session = data.token;
+          } catch (err) {
+            console.error("Failed to get session token:", err);
+          }
         },
         append(input, output, ok = true) {
           this.lines.push({ id: crypto.randomUUID(), input, output, ok });
@@ -81,11 +88,16 @@
             try {
               const res = await fetch(`${API}/eval`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ line: b }),
-                credentials: 'include'
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + this.session
+                },
+                body: JSON.stringify({ line: b })
               });
               const data = await res.json();
+            
+              const newToken = res.headers.get("X-Session-Token");
+              if (newToken) this.session = newToken;
               this.append(b, data.ok ? String(data.result) : data.error, data.ok);
             } catch (err) {
               this.append(b, 'Network error', false);

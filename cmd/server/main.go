@@ -26,36 +26,26 @@ func newServer() *server {
     return &server{sessions: map[string]*myinterp.Interpreter{}}
 }
 
-func (s *server) getSession(w http.ResponseWriter, r *http.Request) (string, *myinterp.Interpreter) {
-    cookie, err := r.Cookie("sid")
-    if err != nil || cookie.Value == "" {
-        sid := newSID()
 
-        http.SetCookie(w, &http.Cookie{
-            Name:     "sid",
-            Value:    sid,
-            Path:     "/",
-            HttpOnly: true,
-            Secure:   true,
-            SameSite: http.SameSiteNoneMode,
-        })
-        s.mu.Lock()
-        s.sessions[sid] = myinterp.NewInterpreter()
-        s.mu.Unlock()
-        return sid, s.sessions[sid]
+func (s *server) getSession(r *http.Request) (string, *myinterp.Interpreter) {
+    token := ""
+    auth := r.Header.Get("Authorization")
+    if strings.HasPrefix(auth, "Bearer ") {
+        token = strings.TrimPrefix(auth, "Bearer ")
     }
-    sid := cookie.Value
+
     s.mu.Lock()
-    interp := s.sessions[sid]
-    if interp == nil {
-        interp = myinterp.NewInterpreter()
-        s.sessions[sid] = interp
+    defer s.mu.Unlock()
+
+    if token == "" || s.sessions[token] == nil {
+        token = newToken()
+        s.sessions[token] = myinterp.NewInterpreter()
     }
-    s.mu.Unlock()
-    return sid, interp
+
+    return token, s.sessions[token]
 }
 
-func newSID() string {
+func newToken() string {
     b := make([]byte, 16)
     if _, err := rand.Read(b); err != nil {
         panic(err)
@@ -79,7 +69,7 @@ func (s *server) handleEval(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    _, interp := s.getSession(w, r)
+    token, interp := s.getSession(r)
 
     var req evalReq
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -105,6 +95,7 @@ func (s *server) handleEval(w http.ResponseWriter, r *http.Request) {
     lex := lexer.NewLexer(line)
     par := parser.NewParser(lex)
     res := interp.Interpret(par)
+    w.Header().Set("X-Session-Token", token) 
     writeJSON(w, 200, evalResp{OK: true, Result: res})
 }
 
@@ -114,8 +105,8 @@ func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    sid, _ := s.getSession(w, r)
-    writeJSON(w, 200, map[string]string{"session": sid})
+    token, _ := s.getSession(r)
+    writeJSON(w, 200, map[string]string{"token": token})
 }
 
 func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -126,13 +117,11 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, path.Join("public", "index.html"))
 }
 
-
 func (s *server) handleHealth(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusOK)
     _ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
-
 
 func writeJSON(w http.ResponseWriter, code int, v interface{}) {
     w.Header().Set("Content-Type", "application/json")
@@ -144,12 +133,12 @@ func withCORS(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         origin := r.Header.Get("Origin")
         if origin != "" {
-            w.Header().Set("Access-Control-Allow-Origin", origin) // cannot be *
+            w.Header().Set("Access-Control-Allow-Origin", origin)
             w.Header().Set("Vary", "Origin")
         }
-        w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
         w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        w.Header().Set("Access-Control-Allow-Credentials", "true") // allow cookies
+        w.Header().Set("Access-Control-Allow-Credentials", "true")
 
         if r.Method == http.MethodOptions {
             w.WriteHeader(http.StatusNoContent)

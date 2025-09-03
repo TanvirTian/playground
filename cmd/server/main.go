@@ -68,10 +68,6 @@ type evalResp struct {
 }
 
 func (s *server) handleEval(w http.ResponseWriter, r *http.Request) {
-    // Allow CORS for GitHub Pages
-    w.Header().Set("Access-Control-Allow-Origin", "*")
-    w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
     _, interp := s.getSession(w, r)
     var req evalReq
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -101,7 +97,6 @@ func (s *server) handleEval(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Access-Control-Allow-Origin", "*")
     sid, _ := s.getSession(w, r)
     writeJSON(w, 200, map[string]string{"session": sid})
 }
@@ -120,19 +115,37 @@ func writeJSON(w http.ResponseWriter, code int, v interface{}) {
     _ = json.NewEncoder(w).Encode(v)
 }
 
+
+func withCORS(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
+        if r.Method == http.MethodOptions {
+            w.WriteHeader(http.StatusNoContent)
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
+}
+
 func main() {
     s := newServer()
 
-    http.HandleFunc("/", s.handleIndex)
-    http.HandleFunc("/eval", s.handleEval)
-    http.HandleFunc("/session", s.handleSession)
+    mux := http.NewServeMux()
+    mux.HandleFunc("/", s.handleIndex)
+    mux.HandleFunc("/eval", s.handleEval)
+    mux.HandleFunc("/session", s.handleSession)
 
-    // Use Railway-assigned port if available
+    
+    handler := withCORS(mux)
+
     port := os.Getenv("PORT")
     if port == "" {
         port = "8080"
     }
 
     log.Println("Playground running on port:", port)
-    log.Fatal(http.ListenAndServe(":"+port, nil))
+    log.Fatal(http.ListenAndServe(":"+port, handler))
 }

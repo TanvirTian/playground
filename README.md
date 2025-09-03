@@ -11,7 +11,7 @@ A web-based Go interpreter playground built from scratch in Go. This project ser
 ---
 
 ### DEMO
-Live demo: https://tanvirtian/github.io/playground
+Live demo: https://tanvirtian.github.io/playground
 ---
 
 ## 📚 Learn More

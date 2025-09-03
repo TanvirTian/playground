@@ -30,12 +30,14 @@ func (s *server) getSession(w http.ResponseWriter, r *http.Request) (string, *my
     cookie, err := r.Cookie("sid")
     if err != nil || cookie.Value == "" {
         sid := newSID()
+
         http.SetCookie(w, &http.Cookie{
             Name:     "sid",
             Value:    sid,
             Path:     "/",
             HttpOnly: true,
-            SameSite: http.SameSiteLaxMode,
+            Secure:   true,                   
+            SameSite: http.SameSiteNoneMode,  
         })
         s.mu.Lock()
         s.sessions[sid] = myinterp.NewInterpreter()
@@ -71,15 +73,11 @@ type evalResp struct {
     Error  string      `json:"error,omitempty"`
 }
 
-
 func (s *server) handleEval(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodOptions {
         w.WriteHeader(http.StatusNoContent)
         return
     }
-
-    w.Header().Set("Access-Control-Allow-Origin", "*")
-    w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
     _, interp := s.getSession(w, r)
 
@@ -116,7 +114,6 @@ func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    w.Header().Set("Access-Control-Allow-Origin", "*")
     sid, _ := s.getSession(w, r)
     writeJSON(w, 200, map[string]string{"session": sid})
 }
@@ -138,23 +135,23 @@ func writeJSON(w http.ResponseWriter, code int, v interface{}) {
 
 func withCORS(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        origin := r.Header.Get("Origin") 
+        origin := r.Header.Get("Origin")
         if origin != "" {
-            w.Header().Set("Access-Control-Allow-Origin", origin)
+            w.Header().Set("Access-Control-Allow-Origin", origin) // cannot be *
             w.Header().Set("Vary", "Origin")
         }
         w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
         w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        w.Header().Set("Access-Control-Allow-Credentials", "true") 
+        w.Header().Set("Access-Control-Allow-Credentials", "true") // allow cookies
 
         if r.Method == http.MethodOptions {
             w.WriteHeader(http.StatusNoContent)
             return
         }
+
         next.ServeHTTP(w, r)
     })
 }
-
 
 func main() {
     s := newServer()

@@ -1,4 +1,4 @@
-<!-- public/index.html -->
+<!-- docs/index.html -->
 <!doctype html>
 <html lang="en">
   <head>
@@ -64,12 +64,16 @@
 
     <script>
       function playground() {
+  const API = "https://playground-r6wl.onrender.com"
+
   return {
     code: "",     
     lines: [],
     session: '',
     init() {
-      fetch('/session').then(r => r.json()).then(j => { this.session = j.session })
+      fetch(`${API}/session`)
+        .then(r => r.json())
+        .then(j => { this.session = j.session })
     },
     append(input, output, ok = true) {
       this.lines.push({ id: crypto.randomUUID(), input, output, ok })
@@ -81,7 +85,7 @@
     async run() {
       const blocks = this.code.split(/\n+/).map(s => s.trim()).filter(Boolean)
       for (const b of blocks) {
-        const res = await fetch('/eval', {
+        const res = await fetch(`${API}/eval`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ line: b })

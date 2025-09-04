@@ -5,44 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Interpreter Playground</title>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <style>
-    :root { --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#9ca3af; --accent:#22c55e; --error:#ef4444; }
-    html,body { height:100%; }
-    body { margin:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
-    .container { max-width: 980px; margin: 40px auto; padding: 0 16px; }
-    .card { background: var(--panel); border: 1px solid #1f2937; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
-    .toolbar { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px 14px; border-bottom:1px solid #1f2937; }
-    .title { font-weight:700; letter-spacing:.3px; }
-    .muted { color: var(--muted); }
-    .editor { width:100%; min-height:120px; background:#0b1220; color:var(--text); border:none; outline:none; resize:vertical; padding:12px 14px; font-size:15px; line-height:1.45; border-radius:12px; }
-    .output { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size:14px; padding:12px 14px; max-height: 340px; overflow:auto; }
-    .btn { padding:10px 14px; border-radius: 12px; border:1px solid #1f2937; background:#0b1220; color:var(--text); cursor:pointer; }
-    .btn:hover { filter: brightness(1.08); }
-    .btn.primary { background: #052e1b; border-color:#064e3b; }
-    .btn.primary .dot { display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; margin-right:8px; }
-    .tag { display:inline-block; border:1px solid #1f2937; border-radius:999px; padding:4px 10px; font-size:12px; }
-    .hr { height:1px; background:#1f2937; }
-    .prompt { color:#60a5fa; }
-    .ok { color: var(--accent); }
-    .err { color: var(--error); }
-    a { color:#93c5fd; text-decoration:none; }
-    a:hover { text-decoration:underline; }
-  </style>
+  <link rel="stylesheet" href="styles/styles.css" />
+  <script defer src="playground/playground.js"></script>
 </head>
 <body>
   <div class="container" x-data="playground()" x-init="init()">
     <div class="card">
       <div class="toolbar">
         <div class="title">Go Interpreter Playground</div>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div class="toolbar-actions">
           <span class="tag">Session: <span x-text="session.slice(0,8)+'…'"></span></span>
           <button class="btn" @click="clearOutput()">Clear</button>
           <button class="btn primary" @click="run()"><span class="dot"></span>Run</button>
         </div>
       </div>
-      <div style="padding:14px;">
+      <div class="card-body">
         <textarea class="editor" x-model="code"></textarea>
-        <div class="hr" style="margin:14px 0"></div>
+        <div class="hr"></div>
         <div class="output" id="output">
           <template x-for="line in lines" :key="line.id">
             <div>
@@ -53,62 +32,10 @@
         </div>
       </div>
     </div>
-    <p class="muted" style="margin-top:12px; font-size:12px">
+    <p class="muted footer-note">
       Backend keeps variables per-session using a token. Refresh to start fresh. 
       <a href="https://alpinejs.dev/" target="_blank" rel="noreferrer">Alpine.js</a> on the front, Go on the back.
     </p>
   </div>
-
-  <script>
-    function playground() {
-      const API = "https://playground-r6wl.onrender.com";
-      return {
-        code: "",
-        lines: [],
-        session: "",
-        async init() {
-          try {
-            const res = await fetch(`${API}/session`);
-            const data = await res.json();
-            this.session = data.token;
-          } catch (err) {
-            console.error("Failed to get session token:", err);
-          }
-        },
-        append(input, output, ok = true) {
-          this.lines.push({ id: crypto.randomUUID(), input, output, ok });
-          this.$nextTick(() => {
-            const el = document.getElementById("output");
-            el.scrollTop = el.scrollHeight;
-          });
-        },
-        async run() {
-          const blocks = this.code.split(/\n+/).map(s => s.trim()).filter(Boolean);
-          for (const b of blocks) {
-            try {
-              const res = await fetch(`${API}/eval`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': 'Bearer ' + this.session
-                },
-                body: JSON.stringify({ line: b })
-              });
-              const data = await res.json();
-            
-              const newToken = res.headers.get("X-Session-Token");
-              if (newToken) this.session = newToken;
-              this.append(b, data.ok ? String(data.result) : data.error, data.ok);
-            } catch (err) {
-              this.append(b, 'Network error', false);
-            }
-          }
-        },
-        clearOutput() {
-          this.lines = [];
-        }
-      };
-    }
-  </script>
 </body>
 </html>

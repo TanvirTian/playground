@@ -5,6 +5,7 @@ window.playground = function() {
     code: "",
     lines: [],
     session: "",
+    lastExecutedLine: 0, // track executed lines
 
     async init() {
       try {
@@ -25,7 +26,9 @@ window.playground = function() {
     },
 
     async run() {
-      const blocks = this.code.split(/\n+/).map(s => s.trim()).filter(Boolean);
+      const allLines = this.code.split(/\n+/).map(s => s.trim()).filter(Boolean);
+      const blocks = allLines.slice(this.lastExecutedLine); // only new lines
+
       for (const b of blocks) {
         try {
           const res = await fetch(`${API}/eval`, {
@@ -46,10 +49,13 @@ window.playground = function() {
           this.append(b, 'Network error', false);
         }
       }
+
+      this.lastExecutedLine = allLines.length; 
     },
 
     clearOutput() {
       this.lines = [];
+      this.lastExecutedLine = 0; 
     }
   };
 };

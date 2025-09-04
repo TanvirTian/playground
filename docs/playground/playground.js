@@ -1,4 +1,4 @@
-function playground() {
+window.playground = function() {
   const API = "https://playground-r6wl.onrender.com";
 
   return {
@@ -52,4 +52,4 @@ function playground() {
       this.lines = [];
     }
   };
-}
+};

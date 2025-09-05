@@ -5,7 +5,6 @@ window.playground = function() {
     code: "",
     lines: [],
     session: "",
-    readonly: false, 
     lastExecutedLine: 0, 
 
     async init() {
@@ -27,18 +26,10 @@ window.playground = function() {
     },
 
     async run() {
-      if (this.readonly) return; 
-
-      const allLines = this.code.split("\n"); 
-      const blocks = allLines.slice(this.lastExecutedLine); 
+      const allLines = this.code.split(/\n+/).map(s => s.trim()).filter(Boolean);
+      const blocks = allLines.slice(this.lastExecutedLine); // only new lines
 
       for (const b of blocks) {
-        const trimmed = b.trim();
-        if (!trimmed) {
-          this.lastExecutedLine++;
-          continue;
-        }
-
         try {
           const res = await fetch(`${API}/eval`, {
             method: 'POST',
@@ -46,20 +37,20 @@ window.playground = function() {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer ' + this.session
             },
-            body: JSON.stringify({ line: trimmed })
+            body: JSON.stringify({ line: b })
           });
           const data = await res.json();
 
           const newToken = res.headers.get("X-Session-Token");
           if (newToken) this.session = newToken;
 
-          this.append(trimmed, data.ok ? String(data.result) : data.error, data.ok);
+          this.append(b, data.ok ? String(data.result) : data.error, data.ok);
         } catch (err) {
-          this.append(trimmed, 'Network error', false);
+          this.append(b, 'Network error', false);
         }
-
-        this.lastExecutedLine++; 
       }
+
+      this.lastExecutedLine = allLines.length; 
     },
 
     clearOutput() {

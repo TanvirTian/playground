@@ -5,7 +5,8 @@ window.playground = function() {
     code: "",
     lines: [],
     session: "",
-    lastExecutedLine: 0, // track executed lines
+    readonly: false,
+    lastExecutedLine: 0, 
 
     async init() {
       try {
